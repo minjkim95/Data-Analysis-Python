@@ -1,0 +1,84 @@
+---
+title: "STA 260 Final"
+author: "Yutian Yang, Min Kim, Dingning Liu, Ziqin Wang"  
+date: "3/9/2022"
+output: html_document
+---
+
+```{r}
+library(randomForest)
+library(cluster)
+library(caret)
+library(RColorBrewer)
+library(tidyverse)
+set.seed(42)
+new_isotopes <- read.csv("C:/Users/charl/Downloads/new_isotopes.csv")
+new_isotopes$isotopes <- as.factor(new_isotopes$isotopes)
+```
+
+```{r}
+X = new_isotopes[,c(1:5)]
+y = new_isotopes[,6]
+
+
+X.pc <- prcomp(X, center = TRUE, scale. = TRUE)$x %>% as.data.frame()
+```
+
+
+```{r}
+train = sort(sample(nrow(new_isotopes), nrow(new_isotopes)*.2))
+
+X_train <- X[train,]
+X_test <- X[-train,]
+
+y_train <- y[train]
+y_test <- y[-train]
+
+X.pc_train <- X.pc[train,]
+
+
+isotopes_train <- cbind(X_train,y_train)
+```
+
+
+```{r}
+#rf.fit <- randomForest(x = X_train, y = NULL, ntree = 10000, proximity = TRUE, oob.prox = TRUE)
+#hclust.rf <- hclust(as.dist(1-rf.fit$proximity), method = "ward.D2")
+#rf.cluster = cutree(hclust.rf, k=6)
+#X.pc$rf.clusters <- rf.cluster
+#table(rf.cluster, y_train)
+```
+
+
+```{r}
+rf <- randomForest(x = X_train, mtry = 2, ntree = 2000, proximity = TRUE)
+rf
+```
+```{r}
+prox <- rf$proximity
+pam.rf <- pam(prox, 4)
+pred <- cbind(pam.rf$clustering, y_train)
+table(pred[,2], pred[,1])
+```
+```{r}
+Clusters <- as.factor(pam.rf$cluster)
+ggplot(isotopes_train, aes(x = log(Sample.Temperature..C.), y = log(release), col = Clusters, , pch = y_train)) + geom_point(size = 3)
+```
+
+```{r}
+rf2 <- randomForest(x = X_train, mtry = 2, ntree = 2000, proximity = TRUE, oob.prox = TRUE)
+rf2
+hclust.rf <- hclust(as.dist(1-rf2$proximity), method = "ward.D2")
+rf2.cluster = cutree(hclust.rf, k=4)
+X.pc_train$rf.clusters <- rf2.cluster
+table(rf2.cluster, y_train)
+```
+
+
+```{r}
+library(metricsgraphics)
+mjs_plot(X.pc_train, x=PC1, y=PC2) %>%
+  mjs_point(color_accessor=rf2.clusters) %>%
+  mjs_labs(x="principal comp 1", y="principal comp 2")
+```
+
